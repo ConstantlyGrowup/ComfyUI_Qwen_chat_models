@@ -1,0 +1,11 @@
+torch
+torchvision
+numpy
+pillow
+huggingface_hub
+transformers
+accelerate
+bitsandbytes
+qwen-vl-utils
+optimum
+
