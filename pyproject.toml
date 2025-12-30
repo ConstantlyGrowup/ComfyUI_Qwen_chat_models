@@ -1,0 +1,35 @@
+[project]
+# Unique identifier for your node on the Comfy Registry. Must be globally unique and immutable after creation.
+# If publish fails due to name collision, change this value and bump version.
+name = "comfyui-qwen-chat-models"
+description = "Custom ComfyUI nodes for running Qwen text and multimodal chat models (Qwen2.5/Qwen3, Qwen2.5-VL/Qwen3-VL) inside workflows."
+# Custom Node version. Must be semantically versioned.
+version = "0.1.1"
+license = { file = "LICENSE" }
+
+# Filled from requirements.txt (no pins provided in this repo).
+dependencies = [
+  "torch",
+  "torchvision",
+  "numpy",
+  "pillow",
+  "huggingface_hub",
+  "transformers",
+  "accelerate",
+  "bitsandbytes",
+  "qwen-vl-utils",
+  "optimum",
+]
+
+[project.urls]
+Repository = "https://github.com/ConstantlyGrowup/ComfyUI_Qwen_chat_models"
+
+[tool.comfy]
+# TODO: Fill in PublisherId from your Comfy Registry profile (the part after '@').
+PublisherId = "janewoodoe601"
+# Display name shown in the registry / ComfyUI-Manager UI. Can be changed later.
+DisplayName = "ComfyUI CALL LOCAL Qwen Chat Models"
+# Optional, but recommended: SVG/PNG/JPG/GIF (MAX 800x400).
+Icon = ""
+
+
