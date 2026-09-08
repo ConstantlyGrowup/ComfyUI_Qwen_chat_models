@@ -122,18 +122,79 @@
   - `Qwen3-8B-Instruct`
   - `Qwen3-4B-Thinking-2507`, `Qwen3-4B-Instruct-2507`
 
-## Troubleshooting
+## GGUF 模型支持
+
+从版本 `0.2.0 起，本插件支持通过 [llama-cpp-python](https://github.com/abetlen/llama-cpp-python) 加载 **GGUF** 格式模型（如 Qwen3-14B-Uncensored 文本，以及 Qwen2.5-VL / Qwen3-VL 多模态）。这非常适合在显存有限的消费级显卡上运行大型模型。
+
+> **多模态（图像 / 视频）的重要前提：需要一个带「多模态 handler）的 GGUF 构建。** 标准 PyPI 版 `llama-cpp-python` 常常只提供**纯文本的 chat handler，这种情况下 `create_chat_completion` 会**静默丢弃图像，只返回模板化问候语。因此需要暴露`Qwen3VLChatHandler` / `Qwen25VLChatHandler` 的构建。详见下方【前置条件】。
+
+### 前置条件
+
+**仅纯文本 GGUF（Qwen 文本节点）只需普通安装：
+
+```bash
+pip install llama-cpp-python
+```
+
+**多模态（图像 / 视频）需要一个暴露「多模态 handler的构建（`Qwen3VLChatHandler` 或 `Qwen25VLChatHandler`——标准 PyPI 版常只提供**纯文本的 chat handler，此时 `create_chat_completion` 会静默丢弃图像、返回模板化问候语。
+
+验证你的构建是否支持多模态：
+
+```bash
+python3 -c "from llama_cpp.llama_chat_format import Qwen3VLChatHandler, Qwen25VLChatHandler; print('vision OK')"
+```
+
+若失败，请安装支持多模态的构建（如 `JamePeng/llama-cpp-python` 的 wheel，参见 [AILAB 的安装文档](https://github.com/1038lab/ComfyUI-QwenVL/blob/main/docs/LLAMA_CPP_PYTHON_VISION_INSTALL.md)。**装到你的 ComfyUI Python 环境**里，再重新验证。
+
+如需 CUDA 加速（Windows），可能需要使用 CUDA 编译：
+
+```bash
+CMAKE_ARGS=”-DGGML_CUDA=on -DLLAMA_CURL=OFF” pip install llama-cpp-python --upgrade --force-reinstall --no-cache-dir
+```
+
+### 使用方法
+
+1. 从 HuggingFace 下载任意 GGUF 模型文件（如 `Qwen3.5-9B-UD-Q8_K_XL.gguf`、`Qwen3.5-9B-Q8_0.gguf`、`Qwen3-14B-Uncensored.Q6_K.gguf`）。
+2. 将文件直接放入 **`ComfyUI/models/LLM/`** 目录（不需要子目录）。
+3. 重启 ComfyUI（或在节点中切换模型后切回来即可重新扫描）。
+4. 在节点中，你的 GGUF 文件会**自动出现在模型下拉框**中——无需手动填写文件路径。
+
+### 上下文大小（context_size）
+
+`context_size` 参数（默认 **4096**）控制模型的上下文窗口（`n_ctx`）。需要更长对话时可以提高它，但注意：
+- 上下文越大，显存占用越高（KV 缓存随上下文线性增长）
+- 对于 14B Q6_K 模型在 16GB 显存上，建议 context ≤ 8192 以避免 OOM
+- 推荐值：2048（速度快、短对话）、4096（平衡）、8192（较长对话，需额外 ~2GB 显存用于 KV 缓存）
+
+### 16GB 显存显卡推荐配置（如 RTX 4070 Ti Super）
+
+| 模型 | 量化 | 显存占用 |
+|---|---|---|
+| Qwen3-14B-Uncensored | Q6_K | ~12.2 GB 权重（8K context 下约 15.1 GB） |
+| Qwen3-14B-Uncensored | Q5_K_M | ~10.5 GB 权重（8K context 下约 13.3 GB） |
+
+> **注意**：使用 GGUF 时，`temperature` 和 `max_new_tokens` 会传递给 llama.cpp 的 `create_chat_completion`。`seed` 参数对 GGUF 模型无效。
+
+## 常见问题
 
 - **勾选了 model_loaded_permanently，然后报错 “Cannot load pinned model”**：
-  - 说明 pinned 模型数量超过 `QWEN_MAX_LOADED_MODELS`（默认 2）
+  - 说明 pinned 模型数量超过 `QWEN_MAX_LOADED_MODELS`（pinned 默认 2）
   - 取消部分节点的 `model_loaded_permanently`，或提高环境变量 `QWEN_MAX_LOADED_MODELS`
 
-- **4bit/8bit 量化不可用 / bitsandbytes 报错**：
-  - 需要正确安装 `bitsandbytes`，并确保 CUDA 环境匹配
-  - 临时解决：把 `quantization` 设为 `none`
+- **我的 GGUF 文件没有出现在模型下拉框中**：
+  - 确认文件直接在 `ComfyUI/models/LLM/` 下（不在子目录里）
+  - 确认文件名以 `.gguf` 结尾（不区分大小写）
+  - 重启 ComfyUI
+
+- **GGUF 模型不理解图像 / 视频：
+  - **你需要一个「支持多模态的 `llama-cpp-python` 构建。** 普通 PyPI 版只有**文本的 handler，`create_chat_completion` 会静默丢弃图像、返回模板化问候语。请先在【前置条件】**验证你的构建，若不支持，则安装暴露 `Qwen3VLChatHandler` / `Qwen25VLChatHandler 的构建并重新验证。
+  - 确保已加载 mmproj（设置 `mmproj: auto` 或选择具体 mmproj）
+  - 确认 mmproj 文件在 `ComfyUI/models/LLM/` 中，且文件名包含 'mmproj'
+  - mmproj 必须与 GGUF 模型匹配（如 Qwen2.5-VL mmproj 对应 Qwen2.5-VL 的 GGUF）
 
 - **CUDA OOM / 显存占用一直不降**：
   - 勾选 `offload_after_used=True` 让节点在推理结束后卸载模型并执行显存清理
-  - 或减少 `max_new_tokens`、改用更小模型、使用 4bit/8bit 量化
+  - 减小 `context_size` 或 `max_new_tokens`
+  - 尝试更小的量化（如 Q6_K → Q5_K_M）
 
 

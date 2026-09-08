@@ -8,4 +8,5 @@ accelerate
 bitsandbytes
 qwen-vl-utils
 optimum
+llama-cpp-python
 
